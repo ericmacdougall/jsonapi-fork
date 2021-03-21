@@ -1,0 +1,169 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const chai_1 = require("chai");
+const mongoose = require("mongoose");
+const APIError_1 = require("../../../../src/types/APIError");
+const parse_query_params_1 = require("../../../../src/steps/pre-query/parse-query-params");
+const MongooseAdapter_1 = require("../../../../src/db-adapters/Mongoose/MongooseAdapter");
+describe("Mongoose Adapter", () => {
+    describe("its instances methods", () => {
+        describe("getModel", () => {
+            it("should throw an exception for unknown models", () => {
+                const adapter = new MongooseAdapter_1.default({});
+                chai_1.expect(() => { adapter.getModel("x"); }).to.throw(/no model .+ registered/i);
+            });
+        });
+    });
+    describe("its static methods", () => {
+        describe("getFriendlyName", () => {
+            it("should detect camel-cased words, and separate and capitalize each one", () => {
+                chai_1.expect(MongooseAdapter_1.default.toFriendlyName("twitterId")).to.equal("Twitter Id");
+            });
+            it("should handle dot-separated, nested paths", () => {
+                chai_1.expect(MongooseAdapter_1.default.toFriendlyName("contact.name")).to.equal("Contact Name");
+            });
+            it("should handle acronyms in names", () => {
+                chai_1.expect(MongooseAdapter_1.default.toFriendlyName("inUSA")).to.equal("In USA");
+                chai_1.expect(MongooseAdapter_1.default.toFriendlyName("isMLBTeam")).to.equal("Is MLB Team");
+                chai_1.expect(MongooseAdapter_1.default.toFriendlyName("thisIsATest")).to.equal("This Is A Test");
+                chai_1.expect(MongooseAdapter_1.default.toFriendlyName("ATest")).to.equal("A Test");
+                chai_1.expect(MongooseAdapter_1.default.toFriendlyName("isCaseB")).to.equal("Is Case B");
+            });
+        });
+        describe("assertIdsValid", () => {
+            it("should return void on empty input, a valid id, or valid ids", () => {
+                const basicPredicate = parse_query_params_1.FieldExpression("and", [parse_query_params_1.FieldExpression("eq", [parse_query_params_1.Identifier("a"), "b"])]);
+                const validInputs = [
+                    basicPredicate,
+                    Object.assign({}, basicPredicate, { args: basicPredicate.args.concat({
+                            type: "FieldExpression",
+                            operator: "eq",
+                            args: [parse_query_params_1.Identifier("id"), "552c5e1c604d41e5836bb174"]
+                        }) }),
+                    Object.assign({}, basicPredicate, { args: basicPredicate.args.concat({
+                            type: "FieldExpression",
+                            operator: "in",
+                            args: [
+                                parse_query_params_1.Identifier("id"),
+                                ["552c5e1c604d41e5836bb174", "552c5e1c604d41e5836bb175"]
+                            ]
+                        }) })
+                ];
+                const results = validInputs.map(it => MongooseAdapter_1.default.assertIdsValid(it, true));
+                chai_1.expect(results.every(it => it === undefined)).to.be.true;
+            });
+            it("should throw on an invalid id, or if any id in an array is invalid", () => {
+                const fn = () => {
+                    MongooseAdapter_1.default.assertIdsValid(parse_query_params_1.FieldExpression("and", [
+                        parse_query_params_1.FieldExpression("eq", [parse_query_params_1.Identifier("a"), "b"]),
+                        parse_query_params_1.FieldExpression("eq", [parse_query_params_1.Identifier("id"), "1"])
+                    ]), true);
+                };
+                chai_1.expect(fn).to.throw(APIError_1.default);
+                const fn2 = () => {
+                    MongooseAdapter_1.default.assertIdsValid(parse_query_params_1.FieldExpression("and", [{
+                            type: "FieldExpression",
+                            args: [parse_query_params_1.Identifier("a"), "b"],
+                            operator: "eq"
+                        },
+                        {
+                            type: "FieldExpression",
+                            args: [parse_query_params_1.Identifier("id"), ["1", "552c5e1c604d41e5836bb174"]],
+                            operator: "in"
+                        }]), false);
+                };
+                chai_1.expect(fn2).to.throw(APIError_1.default);
+            });
+        });
+        describe("idIsValid", () => {
+            it("should reject all == null input", () => {
+                chai_1.expect(MongooseAdapter_1.default.idIsValid()).to.be.false;
+                chai_1.expect(MongooseAdapter_1.default.idIsValid(null)).to.be.false;
+                chai_1.expect(MongooseAdapter_1.default.idIsValid(undefined)).to.be.false;
+            });
+            it("should reject bad input type", () => {
+                chai_1.expect(MongooseAdapter_1.default.idIsValid(true)).to.be.false;
+            });
+            it("should reject empty string", () => {
+                chai_1.expect(MongooseAdapter_1.default.idIsValid("")).to.be.false;
+            });
+            it("should reject 12-character strings", () => {
+                chai_1.expect(MongooseAdapter_1.default.idIsValid("aaabbbccc111")).to.be.false;
+            });
+            it("should reject numbers", () => {
+                chai_1.expect(MongooseAdapter_1.default.idIsValid(1)).to.be.false;
+            });
+            it("should accpet valid hex string", () => {
+                chai_1.expect(MongooseAdapter_1.default.idIsValid("552c5e1c604d41e5836bb175")).to.be.true;
+            });
+        });
+        describe("getStandardizedSchema", () => {
+            let schemaRaw;
+            let standardizedSchema;
+            before(() => {
+                schemaRaw = {
+                    "valuesEnum": {
+                        type: String,
+                        enum: {
+                            values: ["c", "d"]
+                        }
+                    },
+                    "noValuesEnum": {
+                        type: String,
+                        enum: ["a", "b"]
+                    },
+                    "arrayValuesEnum": [{
+                            type: String,
+                            enum: {
+                                values: ["e", "f"]
+                            }
+                        }],
+                    "arrayNoValuesEnum": [{
+                            type: String,
+                            enum: ["g", "h"]
+                        }],
+                    "nonEnumNumber": {
+                        type: Number,
+                        default: 4
+                    },
+                    "nonEnumString": {
+                        type: String,
+                        default: 4
+                    },
+                    "arrayNonEnum": [{
+                            type: Number
+                        }],
+                    "arrayObjectId": [
+                        { type: mongoose.Schema.Types.ObjectId, ref: "Test" }
+                    ],
+                    "stringArray": [String]
+                };
+                const model = mongoose.model("Test", new mongoose.Schema(schemaRaw));
+                standardizedSchema = MongooseAdapter_1.default.getStandardizedSchema(model);
+            });
+            after(() => {
+                delete mongoose.models.Test;
+            });
+            it("should return an array of fields", () => {
+                const expectedFieldCount = Object.keys(schemaRaw).length + 1;
+                chai_1.expect(standardizedSchema).to.be.an("array");
+                chai_1.expect(standardizedSchema).to.have.length(expectedFieldCount);
+            });
+            it("should work with all the ways of declaring enums", () => {
+                const fields = standardizedSchema.reduce((prev, field) => {
+                    prev[field.name] = field;
+                    return prev;
+                }, {});
+                chai_1.expect(fields.valuesEnum.validation.oneOf).to.deep.equal(["c", "d"]);
+                chai_1.expect(fields.noValuesEnum.validation.oneOf).to.deep.equal(["a", "b"]);
+                chai_1.expect(fields.arrayValuesEnum.validation.oneOf).to.deep.equal(["e", "f"]);
+                chai_1.expect(fields.arrayNoValuesEnum.validation.oneOf).to.deep.equal(["g", "h"]);
+                chai_1.expect(fields.nonEnumNumber.validation.oneOf).to.be.undefined;
+                chai_1.expect(fields.nonEnumString.validation.oneOf).to.be.undefined;
+                chai_1.expect(fields.arrayNonEnum.validation.oneOf).to.be.undefined;
+                chai_1.expect(fields.arrayObjectId.validation.oneOf).to.be.undefined;
+                chai_1.expect(fields.stringArray.validation.oneOf).to.be.undefined;
+            });
+        });
+    });
+});

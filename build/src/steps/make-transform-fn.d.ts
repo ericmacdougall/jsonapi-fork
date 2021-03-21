@@ -1,0 +1,20 @@
+import ResourceTypeRegistry from "../ResourceTypeRegistry";
+import { FinalizedRequest, ServerReq, ServerRes } from "../types/";
+import Resource, { ResourceWithId } from "../types/Resource";
+import ResourceIdentifier from "../types/ResourceIdentifier";
+import { TransformMeta } from "../types/Document";
+export declare type Extras<U extends ServerReq = ServerReq, V extends ServerRes = ServerRes> = {
+    request: FinalizedRequest;
+    serverReq: U;
+    serverRes: V;
+    registry: ResourceTypeRegistry;
+};
+export declare type Transformable = Resource | ResourceIdentifier;
+export declare type TransformMode = 'beforeSave' | 'beforeRender';
+export declare type TransformResult<T> = T | undefined | Promise<T | undefined>;
+export declare type TransformFn<T, U extends ServerReq = ServerReq, V extends ServerRes = ServerRes> = (resourceOrIdentifier: T, meta: TransformMeta, extras: Extras<U, V>, superFn: (it: T, meta: TransformMeta) => TransformResult<T>) => TransformResult<T>;
+export declare type ResourceTransformFn = TransformFn<Resource>;
+export declare type FullTransformFn = TransformFn<Transformable>;
+export declare type BeforeRenderResourceTransformFn = TransformFn<ResourceWithId>;
+export declare type BeforeRenderFullTransformFn = TransformFn<ResourceWithId | ResourceIdentifier>;
+export default function makeTransformFn(mode: TransformMode, extras: Extras): (it: ResourceIdentifier | Resource, meta: TransformMeta) => Promise<ResourceIdentifier | Resource | undefined>;

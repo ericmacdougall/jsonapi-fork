@@ -1,0 +1,12 @@
+import ResourceTypeRegistry from '../ResourceTypeRegistry';
+import { FindReturning, CreationReturning, UpdateReturning, DeletionReturning, RelationshipUpdateReturning } from '../db-adapters/AdapterInterface';
+import FindQuery from '../types/Query/FindQuery';
+import CreateQuery from '../types/Query/CreateQuery';
+import UpdateQuery from '../types/Query/UpdateQuery';
+import DeleteQuery from '../types/Query/DeleteQuery';
+import AddToRelationshipQuery from '../types/Query/AddToRelationshipQuery';
+import RemoveFromRelationshipQuery from '../types/Query/RemoveFromRelationshipQuery';
+export declare type RunnableQuery = FindQuery | CreateQuery | UpdateQuery | DeleteQuery | AddToRelationshipQuery | RemoveFromRelationshipQuery;
+export declare type QueryReturning<T extends RunnableQuery> = T extends FindQuery ? FindReturning : (T extends CreateQuery ? CreationReturning : (T extends UpdateQuery ? UpdateReturning : (T extends DeleteQuery ? DeletionReturning : (T extends AddToRelationshipQuery ? RelationshipUpdateReturning : (T extends RemoveFromRelationshipQuery ? RelationshipUpdateReturning : never)))));
+declare function runQuery<T extends RunnableQuery>(registry: ResourceTypeRegistry, query: T): Promise<QueryReturning<T>>;
+export default runQuery;
